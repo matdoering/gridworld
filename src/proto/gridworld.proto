@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package gridworld;
+
+enum Direction {
+    NORTH = 0;
+    EAST = 1;
+    SOUTH = 2;
+    WEST = 3;
+}
+
+message Cell {
+  int32 row = 1;
+  int32 col = 2;
+  repeated Direction walls = 3;
+  bool isGoal = 4;
+  bool isStart = 5;
+}
+
+message State {
+    repeated Cell cells = 1;
+    int32 width = 2;
+    int32 height = 3;
+}
