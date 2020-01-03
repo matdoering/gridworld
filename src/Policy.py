@@ -17,34 +17,28 @@ def initValues(gridWorld):
 
 def createPolicy(values, gridWorld):
     # create a greedy policy based on the values param
-    #print("---------CREATE POLICY-----------")
-    #print(values)
-    workingState = copy.deepcopy(gridWorld)
 
     stateGen = StateGenerator()
     greedyPolicy = [Action(Actions.NONE)] * len(values)
-    for (i, cell) in enumerate(workingState.getCells()):
+    for (i, cell) in enumerate(gridWorld.getCells()):
+        gridWorld.setActor(cell)
         if not cell.canBeEntered():
             continue
-
         maxPair = (Actions.NONE, -np.inf)
         for actionType in Actions:
-            workingState.setActor(cell) # reset state
             if actionType == Actions.NONE:
                 continue
-
-            proposedState = workingState.proposeMove(actionType)
+            proposedState = gridWorld.proposeMove(actionType)
             if proposedState is None:
                 continue
-
-            newStates = stateGen.generateState(workingState, actionType, cell)
+            newStates = stateGen.generateState(gridWorld, actionType, cell)
             totalValue = 0.0
             for newActorCell in newStates:
                 actorPos = newActorCell.getIndex()
                 totalValue += values[actorPos]
             if totalValue > maxPair[1]:
                 maxPair = (actionType, totalValue)
-        workingState.unsetActor(cell) # reset state
+        gridWorld.unsetActor(cell) # reset state
         greedyPolicy[i] = Action(maxPair[0])
     return greedyPolicy
 
@@ -123,9 +117,6 @@ class Policy:
         self.height = height
 
     def policyActionForCell(self, cell):
-        #print("policyActionForCell")
-        #print(self.policy[cell.getIndex()])
-        #print(cell.getIndex())
         return self.policy[cell.getIndex()].getActionType()
 
     def pi(self, cell, action):
@@ -210,16 +201,15 @@ class Policy:
         transitionRewards = [-np.inf] * len(Actions)
         # perform full backup operation for this state
         for (i, actionType) in enumerate(Actions):
-            gridWorld.setActor(cell) # reset state
+            gridWorld.setActor(cell) # set state
             actionProb = self.pi(cell, actionType)
             if actionProb == 0 or actionType == Actions.NONE:
                 continue
             newStates = stateGen.generateState(gridWorld, actionType, cell)
             transitionReward = 0
             for newActorCell in newStates:
-                # TODO: simplify state handling here (setActor logic unncessary!? ...)
-                #gridWorld.setActor(cell) # reset state
                 V_newState = V_old[newActorCell.getIndex()]
+
                 # Bellman equation performs bootstrapping:
                 # estimate is updated using another estimate
                 newStateReward = self.P(cell, newActorCell, actionType, gridWorld) *\
@@ -258,12 +248,6 @@ class Policy:
             V_old = V_new
             iter += 1
             V_new = self.evaluatePolicyIteration(gridWorld, V_old, gamma, ignoreCellIndices)
-            #tempP= createPolicy(V_new, gridWorld)
-            #tempPolicy = Policy(tempP)
-            #tempPolicy.setWidth(gridWorld.getWidth())
-            #tempPolicy.setHeight(gridWorld.getHeight())
-            #tempPolicy.setValues(V_new)
-            #print(tempPolicy)
             ignoreCellIndices = self.findConvergedCells(V_old, V_new)
         print("Terminated after: " + str(iter) + " iterations")
         # store policy found through value iteration
