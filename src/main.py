@@ -5,8 +5,7 @@ from Policy import Policy, improvePolicy, policyIteration # , valueIteration
 from MapParser import MapParser
 from PolicyParser import PolicyParser
 from PolicyConfig import PolicyConfig, StickyWallConfig
-
-import pickle
+from Belief import Belief
 
 def loadDefaultMap():
     parser = MapParser()
@@ -23,13 +22,20 @@ gridMap = loadDefaultMap()
 print(gridMap)
 
 # options:
-testStickyWall = True
+beliefTracking = True
+testStickyWall = False
 toImprovePolicy = False
 selectPolicy = False
 
 # run:
 optimalPolicyThroughImprovement = None
 optimalPolicyThroughValueIteration = None
+
+if beliefTracking:
+    bel = Belief(gridMap)
+    prior = bel.uniformPriorOverReachableStates()
+    dataItem = None
+    bel.bayesFilter(dataItem, prior)
 
 if testStickyWall:
     config = PolicyConfig(setStickyWalls = True)

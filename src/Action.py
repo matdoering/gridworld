@@ -1,6 +1,7 @@
 from Actions import Actions
+from DataItem import DataItem
 
-class Action:
+class Action(DataItem):
     def __init__(self, actionType):
         self.actionType = actionType
 
@@ -21,3 +22,9 @@ class Action:
 
     def getActionType(self):
         return self.actionType
+
+    def isAction(self):
+        return True
+
+    def isPerception(self):
+        return False
