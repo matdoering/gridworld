@@ -198,10 +198,10 @@ class Policy:
         #print(V_new)
         return V_new
 
-    def findConvergedCells(self, V_old, V_new):
+    def findConvergedCells(self, V_old, V_new, theta = 0.01):
         # returns list of cells where values haven't changed
         # optimization for policy evaluation such that known values aren't recomputed again
-        idx = np.where(V_old == V_new)[0]
+        idx = np.where(abs(V_old  V_new) < theta)[0]
         return idx
 
     def evaluatePolicyIteration(self, gridWorld, V_old, gamma, ignoreCellIndices):
