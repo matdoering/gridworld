@@ -4,7 +4,7 @@ import numpy as np
 from Policy import Policy, improvePolicy, policyIteration # , valueIteration
 from MapParser import MapParser
 from PolicyParser import PolicyParser
-from PolicyConfig import PolicyConfig
+from PolicyConfig import PolicyConfig, StickyWallConfig
 
 import pickle
 
@@ -24,7 +24,7 @@ print(gridMap)
 
 # options:
 testStickyWall = True
-toImprovePolicy = True
+toImprovePolicy = False
 selectPolicy = False
 
 # run:
@@ -40,6 +40,12 @@ if testStickyWall:
     emptyPolicy.resetValues()
     print("sticky policy:")
     print(emptyPolicy)
+    for pSticky in [0.25,0.5,0.75, 0.9]:
+        print("pSticky: " + str(pSticky))
+        config.setStickyWallConfig(StickyWallConfig(pSticky))
+        emptyPolicy.valueIteration(gridMap)
+        emptyPolicy.resetValues()
+        print(emptyPolicy)
 
 if toImprovePolicy:
     # load default policy

@@ -17,5 +17,6 @@ class PolicyConfig:
     def getStickyWallConfig(self):
         return self.stickyWallConfig
 
-
+    def setStickyWallConfig(self, stickyWallConfig):
+        self.stickyWallConfig = stickyWallConfig
 
