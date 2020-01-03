@@ -1,4 +1,4 @@
-from generated.proto import gridworld_pb2
+#from generated.proto import gridworld_pb2
 from Actions import Actions
 import sys
 
@@ -143,10 +143,9 @@ class Map:
     def hasActorReachedGoal(self):
         return self.actorCell.isGoal()
 
-    def serialize(self):
-        state = gridworld_pb2.State()
-        # TODO serialize cells: append cell to state.cells
-        state.width = self.width
-        state.height = self.height
+    #def serialize(self):
+        #state = gridworld_pb2.State()
+        #state.width = self.width
+        #state.height = self.height
 
 

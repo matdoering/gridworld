@@ -1,4 +1,3 @@
-from generated.proto import gridworld_pb2
 from Cell import Cell
 
 class EmptyCell(Cell):

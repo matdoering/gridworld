@@ -1,7 +1,6 @@
 from Map import Map
 
 import numpy as np
-from generated.proto import gridworld_pb2
 from Policy import Policy, improvePolicy, policyIteration # , valueIteration
 from MapParser import MapParser
 from PolicyParser import PolicyParser

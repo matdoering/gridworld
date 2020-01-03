@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from generated.proto import gridworld_pb2
+#from generated.proto import gridworld_pb2
 import copy
 
 # interface for cells
@@ -65,6 +65,6 @@ class Cell(ABC):
     def isWall(self):
         return False
 
-    def serialize(self):
-        cell = gridworld_pb2.Cell()
-        print(cell.SerializeToString())
+    #def serialize(self):
+        #cell = gridworld_pb2.Cell()
+        #print(cell.SerializeToString())
