@@ -24,7 +24,7 @@ print(gridMap)
 
 # options:
 testStickyWall = True
-toImprovePolicy = False
+toImprovePolicy = True
 selectPolicy = False
 
 # run:

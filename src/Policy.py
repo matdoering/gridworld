@@ -6,6 +6,7 @@ import sys
 from Action import Action
 from PolicyConfig import PolicyConfig, getDefaultPolicyConfig
 from GameLogic import GameLogic
+import warnings
 
 def initValues(gridWorld):
     values = np.zeros(gridWorld.size())
@@ -25,47 +26,25 @@ def createPolicy(values, gridWorld):
     for (i, cell) in enumerate(workingState.getCells()):
         if not cell.canBeEntered():
             continue
-        # select action maximizing value
-        # TODO: hit
-        #hit = False
-        #if cell.getRow() == 1 and cell.getCol() == 16:
-            #cell.printCoords()
-            #hit = True
 
         maxPair = (Actions.NONE, -np.inf)
         for actionType in Actions:
-            #if hit:
-                #print(actionType)
             workingState.setActor(cell) # reset state
             if actionType == Actions.NONE:
                 continue
 
-            # exclude invalid moves (TODO)
             proposedState = workingState.proposeMove(actionType)
             if proposedState is None:
                 continue
 
-            newStates = stateGen.generateState(workingState, actionType)
-            #if hit:
-                #print(len(newStates))
+            newStates = stateGen.generateState(workingState, actionType, cell)
             totalValue = 0.0
             for newActorCell in newStates:
                 actorPos = newActorCell.getIndex()
-
                 totalValue += values[actorPos]
-                #if hit:
-                #    print("hit coords:")
-                #    newActorCell.printCoords()
-            #if hit:
-                #print(totalValue)
             if totalValue > maxPair[1]:
-                #if hit:
-                #    print("max value:")
-                #    print(actionType)
-                #    print(totalValue)
                 maxPair = (actionType, totalValue)
         workingState.unsetActor(cell) # reset state
-        #print(maxPair[0])
         greedyPolicy[i] = Action(maxPair[0])
     return greedyPolicy
 
@@ -201,8 +180,13 @@ class Policy:
     def findConvergedCells(self, V_old, V_new, theta = 0.01):
         # returns list of cells where values haven't changed
         # optimization for policy evaluation such that known values aren't recomputed again
-        idx = np.where(abs(V_old - V_new < theta))[0]
-        return idx
+
+        # silence warnings from '-inf' values
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', r'invalid value encountered')
+            diff = abs(V_old-V_new)
+            idx = np.where(diff < theta)[0]
+            return idx
 
     def evaluatePolicyIteration(self, gridWorld, V_old, gamma, ignoreCellIndices):
         V = initValues(gridWorld)
@@ -222,62 +206,34 @@ class Policy:
     def evaluatePolicyForState(self, gridWorld, V_old, gamma):
         V = 0
         cell = gridWorld.getActorCell()
-        #hit = False
-        #if cell.getRow() == 1 and cell.getCol() == 16:
-        #    cell.printCoords()
-        #    hit = True
-        #    print(V_old[cell.getIndex()])
         stateGen = StateGenerator()
         transitionRewards = [-np.inf] * len(Actions)
         # perform full backup operation for this state
         for (i, actionType) in enumerate(Actions):
             gridWorld.setActor(cell) # reset state
             actionProb = self.pi(cell, actionType)
-            #if hit:
-                #print(actionType)
-                #print(gridWorld)
-                #print("policy allowed action: " + str(actionProb))
             if actionProb == 0 or actionType == Actions.NONE:
                 continue
-            newStates = stateGen.generateState(gridWorld, actionType)
-            #if hit:
-                #print("no states: " + str(len(newStates)))
+            newStates = stateGen.generateState(gridWorld, actionType, cell)
             transitionReward = 0
             for newActorCell in newStates:
                 # TODO: simplify state handling here (setActor logic unncessary!? ...)
-                gridWorld.setActor(cell) # reset state
-                #if hit:
-                #    print("new cell: " + str(newActorCell))
+                #gridWorld.setActor(cell) # reset state
                 V_newState = V_old[newActorCell.getIndex()]
                 # Bellman equation performs bootstrapping:
                 # estimate is updated using another estimate
                 newStateReward = self.P(cell, newActorCell, actionType, gridWorld) *\
                                     (self.R(cell, newActorCell, actionType) +\
                                     gamma * V_newState)
-                #if hit:
-                    #print(newActorCell.printCoords())
-                    #print("P:" + str(self.P(cell, newActorCell, actionType, gridWorld)))
-                    #print("reward: " + str(newStateReward))
 
                 transitionReward += newStateReward
-                if transitionReward < -100:
-                    print(transitionReward)
-                    cell.printCoords()
-                    sys.exit()
 
             transitionRewards[i] = transitionReward
             V_a = actionProb * transitionReward
             V += V_a
-            #if hit:
-                #print(transitionRewards)
         if len(self.policy) == 0:
-            # value iteration
             #print(transitionRewards)
-            #if hit:
-                #print(transitionRewards)
             V = max(transitionRewards)
-        #if hit:
-            #print("---totalReward: " + str(V))
         return V
 
     def getValue(self, i):

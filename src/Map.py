@@ -107,19 +107,24 @@ class Map:
 
         x = actorCell.getRow()
         y = actorCell.getCol()
+        try:
+            if action == Actions.GO_NORTH:
+                potentialCell = self.getCell(x-1, y)
+            elif action == Actions.GO_EAST:
+                potentialCell = self.getCell(x, y+1)
+            elif action == Actions.GO_SOUTH:
+                potentialCell = self.getCell(x+1, y)
+            elif action == Actions.GO_WEST:
+                potentialCell = self.getCell(x, y-1)
+            elif action == Actions.NONE:
+                potentialCell = actorCell
+            else:
+               raise Exception("Unknown action")
+        except(IndexError):
+            # we're at the border of the map
+            # so action can't be executed
+            potentialCell = None
 
-        if action == Actions.GO_NORTH:
-            potentialCell = self.getCell(x-1, y)
-        elif action == Actions.GO_EAST:
-            potentialCell = self.getCell(x, y+1)
-        elif action == Actions.GO_SOUTH:
-            potentialCell = self.getCell(x+1, y)
-        elif action == Actions.GO_WEST:
-            potentialCell = self.getCell(x, y-1)
-        elif action == Actions.NONE:
-            potentialCell = actorCell
-        else:
-           raise Exception("Unknown action")
         if not potentialCell.canBeEntered():
             return None
         return potentialCell
@@ -128,7 +133,7 @@ class Map:
         potentialCell = self.proposeMove(action)
         if potentialCell:
             # move actor
-            self.moveActor(potentialCell) # TODO: never apply moves for real?
+            self.moveActor(potentialCell)
 
     def setActor(self, cell):
         if self.actorCell:
