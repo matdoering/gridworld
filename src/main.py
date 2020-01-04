@@ -5,7 +5,7 @@ from Policy import Policy, improvePolicy, policyIteration # , valueIteration
 from MapParser import MapParser
 from PolicyParser import PolicyParser
 from PolicyConfig import PolicyConfig, StickyWallConfig
-from Belief import Belief
+from Belief import Belief, randomActionSelection, QMDP
 from Actions import Actions
 from Action import Action
 from Perception import Perception
@@ -37,7 +37,8 @@ optimalPolicyThroughValueIteration = None
 
 if beliefTracking:
     bel = Belief(gridMap)
-    bel.exploreRandomly()
+    #bel.explore(randomActionSelection)
+    bel.explore(QMDP)
 
 if testStickyWall:
     config = PolicyConfig(setStickyWalls = True)

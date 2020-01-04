@@ -1,12 +1,14 @@
 # track belief in states
 
 import numpy as np
-from Actions import Actions
+from Actions import Actions, getViableActions
 from GameLogic import GameLogic
 from PolicyConfig import getDefaultPolicyConfig
 import random
 from Action import Action
 from Perception import Perception
+from StateGenerator import StateGenerator
+from Policy import Policy
 
 def interpretBelief(P, gridWorld):
     i = np.argmax(P)
@@ -14,6 +16,65 @@ def interpretBelief(P, gridWorld):
     maxP = P[i]
     maxP_s = str(round(maxP*100, 2))+ "%"
     print("Max Belief is: " + maxP_s + ", at: " + str(cell.getCoords()))
+
+def randomActionSelection(gridWorld, belief, gameLogic):
+        # ignores gridWorld and belief. arg just passed to have the same interface
+        actions = getViableActions()
+        a = random.choice(actions)
+        return(a)
+
+
+def QMDP(gridWorld, belief, gameLogic):
+    # QMDP: approximation of PMDP using a hybrid of MDP and PMDP
+    # value function: ignores state uncertainty
+    # TODO: need +/-1 penalty for this to work. otherwise belief doesnt really have an effect
+    policy = Policy([])
+    generator = StateGenerator()
+    V = policy.valueIteration(gridWorld)
+    actions = getViableActions()
+    bestAction = (Actions.NONE, -np.inf) # pair of action and reward
+    allBestActions = []
+    #arrDim = (len(gridWorld.getCells()), len(gridWorld.getCells()), len(actions))
+    #print(arrDim)
+    #actionMap = np.zeros(arrDim)
+    for action in actions:
+        for cell in gridWorld.getViableCells():
+            beliefInState = belief[cell.getIndex()]
+            if beliefInState == 0:
+                # hacky way to ignore cells without belief (would lead to max gain of 0 ...)
+                #print("cell with belief 0 is: ", cell.getCoords())
+                continue
+            gridWorld.setActor(cell)
+            newCell = gridWorld.proposeMove(action)
+            immediateReward = policy.R(cell, newCell, action) # TODO: remove rewards from policy class and move into GameLogic
+            possibleStates = generator.generateState(gridWorld, action, cell)
+            expectedReward = 0.0
+            for possibleState in possibleStates:
+                P = gameLogic.getTransitionProbability(cell, possibleState, action, gridWorld)
+                R = V[possibleState.getIndex()] * P
+                expectedReward += R
+            q = immediateReward + expectedReward
+            #print(q)
+            #if cell and cell.getRow() == 1 and cell.getCol() == 16:
+                    #print(belief[cell.getIndex()], cell.getCoords(), action, P, R, immediateReward)
+            # TODO: with current reward values, PQ will be highest (= 0) when belief = 0
+            # TODO: alternative: dont force belief to 0 for unreachable cells
+            PQ = beliefInState * q
+            #actionMap[cell.getRow(), cell.getCol(), action.value-1] = PQ
+            #print(PQ)
+            if PQ > bestAction[1]:
+                print("new max at cell: ", cell.getCoords(), PQ)
+                bestAction = (action, PQ)
+                allBestActions = []
+                allBestActions.append(action)
+            elif PQ == bestAction[1]:
+                print("additional max at cell: ", cell.getCoords(), PQ)
+                allBestActions.append(action)
+    print("QMDP choice: ", bestAction)
+    #print(actionMap)
+    print("No of optimal actions: " + str(len(allBestActions)))
+    return random.choice(allBestActions)
+
 
 class Belief:
 
@@ -66,31 +127,40 @@ class Belief:
         self.gridWorld.setActor(oldActorCell) # reset actor
         return(newBeliefs)
 
-    def exploreRandomly(self):
-        # let agent randomly explore and update the belief over the state
+    def explore(self, actionSelectionStrategy):
+        # explore gridworld using 'actionSelectionStrategy' (either QMDP or random)
+
         # start in random cell
         curCell = self.gridWorld.getRandomEnterableCell()
+        #curCell = self.gridWorld.getCell(1,16)
         self.gridWorld.setActor(curCell)
         print(self.gridWorld)
-        actions = [a for a in Actions if a != Actions.NONE]
+        actions = getViableActions()
         curBelief = self.uniformPriorOverReachableStates()
 
         for i in range(500):
             # randomly pick an action
-            a = random.choice(actions)
+            a = actionSelectionStrategy(self.gridWorld, curBelief, self.gameLogic)
+            self.gridWorld.setActor(curCell) # make sure that actor is on same position as before selecting action (TODO)
             #a = Actions.GO_NORTH
-            #print(a)
+            print(a)
             p = self.gridWorld.apply(a)
+            curCell = self.gridWorld.getActorCell()
             #print(p)
             #curCell = self.gridWorld.getActorCell()
             curBelief = self.bayesFilter(Action(a), curBelief)
             curBelief = self.bayesFilter(Perception(p), curBelief)
             interpretBelief(curBelief, self.gridWorld)
-            print(curBelief)
+            #print(curBelief)
             print(self.gridWorld)
+            # check whether agent has reached the goal
+            if self.gridWorld.getActorCell().isGoal():
+                break
+        print("Reached goal in iteration: " + str(i))
+        return(i)
 
+# problem: belief state is too unsure about the world to derive viable actions
 
-# TODO: implement QMDP algorithm (Q learning, belief convergence)
 # for t-step policy, the value of executing an action in state s is:
 # Vp(s) = R(s, a(p)) + expected reward in the future
 # Vp(b) = sum_s [ belief(s)*  V_p(s)

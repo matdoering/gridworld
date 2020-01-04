@@ -32,6 +32,7 @@ def createPolicy(values, gridWorld):
             if proposedState is None:
                 continue
             newStates = stateGen.generateState(gridWorld, actionType, cell)
+            # TODO: should be adjusted to account that proposed state may not have full transition prob into newState (P_transition) and that the immediate reward is earned when executing action
             totalValue = 0.0
             for newActorCell in newStates:
                 actorPos = newActorCell.getIndex()
@@ -139,7 +140,7 @@ class Policy:
 
     def R(self, oldState, newState, action):
         # reward for state transition from oldState to newState via action
-        if newState.isGoal():
+        if newState and newState.isGoal():
             return 0
         else:
             return - 1
