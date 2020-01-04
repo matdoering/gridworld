@@ -117,7 +117,7 @@ class Policy:
         self.height = height
 
     def policyActionForCell(self, cell):
-        return self.policy[cell.getIndex()].getActionType()
+        return self.policy[cell.getIndex()].getType()
 
     def pi(self, cell, action):
         # probability that policy performs action 'a' in state 's'

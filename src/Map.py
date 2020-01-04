@@ -1,6 +1,8 @@
 #from generated.proto import gridworld_pb2
 from Actions import Actions
 import sys
+import random
+from Perceptions import Perceptions
 
 class Map:
 
@@ -32,12 +34,20 @@ class Map:
     def setHeight(self, height):
         self.height = height
 
+    def getViableCells(self):
+        return [c for c in self.cells if c.canBeEntered()]
+
     def getCells(self):
         return self.cells
 
     def setCells(self, cells):
         self.cells = cells
         self.setCellNeighbors()
+
+    def getRandomEnterableCell(self):
+        okCells = self.getViableCells()
+        startCell = random.choice(okCells)
+        return(startCell)
 
     def setCellNeighbors(self):
         self.neighborCells = []
@@ -60,6 +70,19 @@ class Map:
                 return True
         return False
 
+    def getCellNeighbors(self, cell):
+        return self.neighborCells[cell.getIndex()]
+
+    def getWallNeighbors(self, cell):
+        neighbors = self.neighborCells[cell.getIndex()]
+        wallNeighbors = [nCell for nCell in neighbors if nCell.isWall()]
+        return(wallNeighbors)
+
+    def getNbrAdjacentWalls(self, cell):
+        return(len(self.getWallNeighbors(cell)))
+
+    def getCellByIndex(self, idx):
+        return self.cells[idx]
 
     def getCell(self, row, col):
         idx = (row * self.getWidth()) + col
@@ -90,21 +113,9 @@ class Map:
 
     def apply(self, action):
         # applies action to map
-        self.applyMove(action)
+        return self.applyMove(action)
 
-    def proposeMove(self, action):
-        # movement logic
-        #print("apply move:" + str(action))
-
-        potentialCell = None
-        actorCell = self.getActorCell()
-        if actorCell.isGoal():
-            # do not move away from goal
-            return potentialCell
-        if not actorCell.canBeEntered():
-            # current actor cell is invalid (e.g. wall)
-            return potentialCell
-
+    def evaluateAction(self, action, actorCell):
         x = actorCell.getRow()
         y = actorCell.getCol()
         try:
@@ -124,22 +135,60 @@ class Map:
             # we're at the border of the map
             # so action can't be executed
             potentialCell = None
+        return(potentialCell)
 
+    def proposeMove(self, action):
+        # movement logic
+        #print("apply move:" + str(action))
+        potentialCell = None
+        actorCell = self.getActorCell()
+        if actorCell.isGoal():
+            # do not move away from goal
+            return potentialCell
+        if not actorCell.canBeEntered():
+            # current actor cell is invalid (e.g. wall)
+            #raise(Exception, "Actor in invalid cell") # TODO: implement exception to disallow this state
+            return potentialCell
+        potentialCell = self.evaluateAction(action, actorCell)
         if not potentialCell.canBeEntered():
             return None
         return potentialCell
 
+    def getSensorReadOut(self, action, actorCell, useSmartBumpers = True):
+        potentialCell = self.evaluateAction(action, actorCell)
+        perception = None
+        # TODO: put smart bumper use in GameConfig
+        # TODO: move sensor read out to game logic
+        if potentialCell and potentialCell.isWall():
+            perception = Perceptions.HIT_WALL
+            if useSmartBumpers:
+                if action == Actions.GO_NORTH:
+                    perception = Perceptions.HIT_WALL_N
+                elif action == Actions.GO_EAST:
+                    perception = Perceptions.HIT_WALL_E
+                elif action == Actions.GO_SOUTH:
+                    perception = Perceptions.HIT_WALL_S
+                elif action == Actions.GO_EAST:
+                    perception = Perceptions.HIT_WALL_E
+        else:
+            perception = Perceptions.NOT_HIT_WALL
+        return perception
+
     def applyMove(self, action):
+        oldActorCell = self.getActorCell()
         potentialCell = self.proposeMove(action)
         if potentialCell:
             # move actor
             self.moveActor(potentialCell)
+        # return sensor measurements resulting from move
+        return self.getSensorReadOut(action, oldActorCell)
 
     def setActor(self, cell):
         if self.actorCell:
             self.actorCell.unsetActor()
         self.actorCell = cell
-        cell.setActor()
+        if cell:
+            cell.setActor()
 
     def unsetActor(self, cell):
         self.actorCell = None

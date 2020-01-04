@@ -20,7 +20,7 @@ class Action(DataItem):
         else:
             return "?"
 
-    def getActionType(self):
+    def getType(self):
         return self.actionType
 
     def isAction(self):

@@ -14,16 +14,12 @@ class Cell(ABC):
         self.col = 0
         self.containsGoal = False
         self.containsActor = False
-        self.neighbors = []
+
+    def getCoords(self):
+        return(self.row, self.col)
 
     def printCoords(self):
         print(self.row, self.col)
-
-    def addNeighborCell(self, cell):
-        self.neighbors.append(cell)
-
-    def getNeighborCells(self):
-        return self.neighbors
 
     def setRow(self, row):
         self.row = row

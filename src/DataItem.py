@@ -9,3 +9,8 @@ class DataItem(ABC):
     @abstractmethod
     def isAction(self):
         pass
+
+    @abstractmethod
+    def getType(self):
+        # type of action/perception
+        pass
