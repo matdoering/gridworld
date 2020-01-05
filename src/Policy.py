@@ -15,9 +15,8 @@ def initValues(gridWorld):
             values[cell.getIndex()] = -np.inf
     return values
 
-def createPolicy(values, gridWorld):
+def createPolicy(values, gridWorld, gameLogic):
     # create a greedy policy based on the values param
-
     stateGen = StateGenerator()
     greedyPolicy = [Action(Actions.NONE)] * len(values)
     for (i, cell) in enumerate(gridWorld.getCells()):
@@ -28,15 +27,18 @@ def createPolicy(values, gridWorld):
         for actionType in Actions:
             if actionType == Actions.NONE:
                 continue
-            proposedState = gridWorld.proposeMove(actionType)
-            if proposedState is None:
+            proposedCell = gridWorld.proposeMove(actionType)
+            if proposedCell is None:
+                # actions is nonsensical in this state
                 continue
-            newStates = stateGen.generateState(gridWorld, actionType, cell)
-            # TODO: should be adjusted to account that proposed state may not have full transition prob into newState (P_transition) and that the immediate reward is earned when executing action
             totalValue = 0.0
-            for newActorCell in newStates:
-                actorPos = newActorCell.getIndex()
-                totalValue += values[actorPos]
+            proposedStates = stateGen.generateState(gridWorld, actionType, cell)
+            #proposedStates = gridWorld.getViableCells() # alternative: consider all states
+            for proposedState in proposedStates:
+                actorPos = proposedState.getIndex()
+                transitionProb = gameLogic.getTransitionProbability(cell, proposedState, actionType, gridWorld)
+                expectedValue = transitionProb * values[actorPos]
+                totalValue += expectedValue
             if totalValue > maxPair[1]:
                 maxPair = (actionType, totalValue)
         gridWorld.unsetActor(cell) # reset state
@@ -50,7 +52,7 @@ def improvePolicy(policy, gridWorld):
         policy.evaluatePolicy(gridWorld)
     #print("new values:")
     #print(policy.getValues())
-    greedyPolicy = createPolicy(policy.getValues(), gridWorld)
+    greedyPolicy = createPolicy(policy.getValues(), gridWorld, policy.gameLogic)
     policy.setPolicy(greedyPolicy)
     return policy
 
@@ -69,10 +71,11 @@ def policyIteration(policy, gridWorld):
         it += 1
         #print("policyIteration: " + str(it))
         #print(lastPolicy)
-        print(improvedPolicy) # DEBUG
+        #print(improvedPolicy) # DEBUG
         if improvedPolicy == lastPolicy:
             break
         lastPolicy = improvedPolicy
+    print("Policy iteration terminated after: " + str(it) + " iterations")
     return(improvedPolicy)
 
 class Policy:
@@ -135,15 +138,10 @@ class Policy:
 
     def P(self, oldState, newState, actionType, gridWorld):
         # probability to transition from oldState to newState given action
-        transitionProb = self.gameLogic.getTransitionProbability(oldState, newState, actionType, gridWorld)
-        return(transitionProb)
+        return self.gameLogic.getTransitionProbability(oldState, newState, actionType, gridWorld)
 
     def R(self, oldState, newState, action):
-        # reward for state transition from oldState to newState via action
-        if newState and newState.isGoal():
-            return 0
-        else:
-            return - 1
+        return self.gameLogic.R(oldState, newState, action)
 
     def evaluatePolicy(self, gridWorld, gamma = 1):
         # determine the value function V using policy iteration
@@ -204,27 +202,29 @@ class Policy:
         for (i, actionType) in enumerate(Actions):
             gridWorld.setActor(cell) # set state
             actionProb = self.pi(cell, actionType)
+            #if cell.getIndex() == 35:
+            #    print(actionType, actionProb)
             if actionProb == 0 or actionType == Actions.NONE:
                 continue
             newStates = stateGen.generateState(gridWorld, actionType, cell)
             transitionReward = 0
             for newActorCell in newStates:
                 V_newState = V_old[newActorCell.getIndex()]
-
-                # Bellman equation performs bootstrapping:
-                # estimate is updated using another estimate
+                # Bellman equation
                 newStateReward = self.P(cell, newActorCell, actionType, gridWorld) *\
                                     (self.R(cell, newActorCell, actionType) +\
                                     gamma * V_newState)
-
                 transitionReward += newStateReward
-
             transitionRewards[i] = transitionReward
             V_a = actionProb * transitionReward
+            #if cell.getIndex() == 35: # 1,16
+            #    print(cell.getCoords())
+            #    print("Va: " + str(V_a))
             V += V_a
         if len(self.policy) == 0:
             #print(transitionRewards)
             V = max(transitionRewards)
+        #print(transitionRewards)
         return V
 
     def getValue(self, i):
@@ -252,7 +252,7 @@ class Policy:
             ignoreCellIndices = self.findConvergedCells(V_old, V_new)
         print("Terminated after: " + str(iter) + " iterations")
         # store policy found through value iteration
-        greedyPolicy = createPolicy(V_new, gridWorld)
+        greedyPolicy = createPolicy(V_new, gridWorld, self.gameLogic)
         self.setPolicy(greedyPolicy)
         self.setWidth(gridWorld.getWidth())
         self.setHeight(gridWorld.getHeight())

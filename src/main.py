@@ -26,10 +26,10 @@ gridMap = loadDefaultMap()
 print(gridMap)
 
 # options:
-beliefTracking = True
-testStickyWall = False
-toImprovePolicy = False
-selectPolicy = False
+beliefTracking = False
+testStickyWall = True
+toImprovePolicy = True
+selectPolicy = True
 
 # run:
 optimalPolicyThroughImprovement = None
@@ -68,7 +68,6 @@ if toImprovePolicy:
     greedyPolicy = improvePolicy(policy, gridMap)
     print(greedyPolicy)
     greedyPolicy.resetValues()
-    print(greedyPolicy)
     # policy iteration
     print("policy iteration:")
     optimalPolicyThroughImprovement = policyIteration(greedyPolicy, gridMap)

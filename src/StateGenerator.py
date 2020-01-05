@@ -4,6 +4,7 @@ import copy
 class StateGenerator:
 
     def generateState(self, gridWorld, actionType, oldActorCell):
+        # performance optimization for new states to be considered
         # generate all possible states
         # by applying all agent actions
         # and environment effects on these actions
@@ -14,8 +15,7 @@ class StateGenerator:
             # cant move
             moveState = oldActorCell
         possibleStates.append(moveState)
-
-        if gridWorld.isCellAdjacentToWall(oldActorCell):
-            # may need to consider transition failure in this case
+        if moveState != oldActorCell:
+            # move may fail
             possibleStates.append(oldActorCell)
         return possibleStates

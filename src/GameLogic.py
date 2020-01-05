@@ -5,6 +5,23 @@ from Actions import Actions
 def getPerceptionProbabilityWallDir(newCell):
     return 1 if newCell.isWall() else 0
 
+def transitionProbabilityForInvalidMoves(oldState, newState):
+    if newState == oldState:
+        # this is correct
+        return 1
+    else:
+        # cant transition to 'newState' if action is invalid
+        return 0
+
+def transitionProbabilityAdjacentToWall(oldState, newState, pStuck):
+    # pStuck: probability to be stuck next to wall
+    if oldState == newState:
+        # sticky wall had an effect
+        return pStuck
+    else:
+        # sticky wall didn't have an effect with prob 1 - pStuck
+        return 1 - pStuck
+
 class GameLogic:
 
     def __init__(self, config):
@@ -14,19 +31,17 @@ class GameLogic:
         # check whether move is possible at all
         proposedCell = gridWorld.proposeMove(action)
         if proposedCell is None:
-            # action didn't have an effect (e.g. entered a wall)
-            # -> definitely inquire penalty (= reward)
-            return 1
-
+            return transitionProbabilityForInvalidMoves(oldState, newState)
+        if oldState != newState and newState != proposedCell:
+            # we changed state but there was no action to bring us to this state
+            return 0
         if gridWorld.isCellAdjacentToWall(oldState):
             stickyWallConfig = self.config.getStickyWallConfig()
-            pStuck = stickyWallConfig.p # probability to be stuck next to wall
-            if oldState == newState:
-                # sticky wall had an effect
-                return pStuck
-            else:
-                # sticky wall didn't have an effect with prob 1 - pStuck
-                return 1 - pStuck
+            return transitionProbabilityAdjacentToWall(oldState, newState, stickyWallConfig.p)
+        # normal game logic
+        if proposedCell != newState:
+            # state doesn't match expectation
+            return 0
         else:
             # normal transition between states
             return 1
@@ -59,4 +74,12 @@ class GameLogic:
             return nbrAdjacentNonWalls / nbrActions
         else:
             raise(Exception, "Unhandled perception type")
+
+    def R(self, oldState, newState, action):
+        # reward for state transition from oldState to newState via action
+        if newState and newState.isGoal():
+            return 0
+        else:
+            return - 1
+
 
