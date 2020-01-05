@@ -142,15 +142,15 @@ class Map:
         #print("apply move:" + str(action))
         potentialCell = None
         actorCell = self.getActorCell()
-        if actorCell.isGoal():
-            # do not move away from goal
-            return potentialCell
+        #if actorCell.isGoal():
+            ## do not move away from goal
+            #return potentialCell
         if not actorCell.canBeEntered():
             # current actor cell is invalid (e.g. wall)
-            #raise(Exception, "Actor in invalid cell") # TODO: implement exception to disallow this state
-            return potentialCell
+            raise Exception("Actor in invalid cell")
         potentialCell = self.evaluateAction(action, actorCell)
-        if not potentialCell.canBeEntered():
+        if not potentialCell or not potentialCell.canBeEntered():
+            # TODO: canBeEntered should not be implemented like this but with transition probability?
             return None
         return potentialCell
 

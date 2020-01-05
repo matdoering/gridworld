@@ -7,6 +7,22 @@ from Action import Action
 from PolicyConfig import PolicyConfig, getDefaultPolicyConfig
 from GameLogic import GameLogic
 import warnings
+from matplotlib import pyplot as plt
+import time
+
+def drawValueFunction(V, gridWorld, policy):
+    fig, ax = plt.subplots()
+    im = ax.imshow(np.reshape(V, (-1, gridWorld.getWidth())))
+    for cell in gridWorld.getCells():
+        p = cell.getCoords()
+        i = cell.getIndex()
+        if not cell.isGoal():
+            text = ax.text(p[1], p[0], str(policy[i]),
+                       ha="center", va="center", color="w")
+        if cell.isGoal():
+            text = ax.text(p[1], p[0], "Goal",
+                       ha="center", va="center", color="w")
+    plt.show()
 
 def initValues(gridWorld):
     values = np.zeros(gridWorld.size())
@@ -15,7 +31,7 @@ def initValues(gridWorld):
             values[cell.getIndex()] = -np.inf
     return values
 
-def createPolicy(values, gridWorld, gameLogic):
+def findGreedyPolicy(values, gridWorld, gameLogic, gamma = 1):
     # create a greedy policy based on the values param
     stateGen = StateGenerator()
     greedyPolicy = [Action(Actions.NONE)] * len(values)
@@ -29,36 +45,37 @@ def createPolicy(values, gridWorld, gameLogic):
                 continue
             proposedCell = gridWorld.proposeMove(actionType)
             if proposedCell is None:
-                # actions is nonsensical in this state
+                # action is nonsensical in this state
                 continue
-            totalValue = 0.0
+            Q = 0.0 # action-value function
             proposedStates = stateGen.generateState(gridWorld, actionType, cell)
-            #proposedStates = gridWorld.getViableCells() # alternative: consider all states
             for proposedState in proposedStates:
                 actorPos = proposedState.getIndex()
                 transitionProb = gameLogic.getTransitionProbability(cell, proposedState, actionType, gridWorld)
-                expectedValue = transitionProb * values[actorPos]
-                totalValue += expectedValue
-            if totalValue > maxPair[1]:
-                maxPair = (actionType, totalValue)
+                reward = gameLogic.R(cell, proposedState, actionType)
+                expectedValue = transitionProb * (reward + gamma * values[actorPos])
+                Q += expectedValue
+            if Q > maxPair[1]:
+                maxPair = (actionType, Q)
         gridWorld.unsetActor(cell) # reset state
         greedyPolicy[i] = Action(maxPair[0])
     return greedyPolicy
 
-def improvePolicy(policy, gridWorld):
+def improvePolicy(policy, gridWorld, gamma = 1):
     policy = copy.deepcopy(policy) # dont modify old policy
     if len(policy.values) == 0:
         # policy needs to be evaluated first
-        policy.evaluatePolicy(gridWorld)
+        policy.evaluatePolicy(gridWorld, gamma)
     #print("new values:")
     #print(policy.getValues())
-    greedyPolicy = createPolicy(policy.getValues(), gridWorld, policy.gameLogic)
+    greedyPolicy = findGreedyPolicy(policy.getValues(), gridWorld, policy.gameLogic)
     policy.setPolicy(greedyPolicy)
     return policy
 
-def policyIteration(policy, gridWorld):
+def policyIteration(policy, gridWorld, gamma = 1):
     # iteratively improve policy by cycling
     # policy evaluation and policy improvement
+    t = time.time()
     print("Input policy:")
     print(policy)
     lastPolicy = copy.deepcopy(policy)
@@ -66,16 +83,17 @@ def policyIteration(policy, gridWorld):
     improvedPolicy = None
     it = 0
     while True:
-        improvedPolicy = improvePolicy(lastPolicy, gridWorld)
-        improvedPolicy.resetValues() # to force re-evaluation of values on next run
+        improvedPolicy = improvePolicy(lastPolicy, gridWorld, gamma)
         it += 1
         #print("policyIteration: " + str(it))
         #print(lastPolicy)
         #print(improvedPolicy) # DEBUG
         if improvedPolicy == lastPolicy:
             break
+        improvedPolicy.resetValues() # to force re-evaluation of values on next run
         lastPolicy = improvedPolicy
-    print("Policy iteration terminated after: " + str(it) + " iterations")
+    t = time.time() - t
+    print("Policy iteration terminated after: " + str(it) + " iterations, time: " + str(t))
     return(improvedPolicy)
 
 class Policy:
@@ -86,6 +104,9 @@ class Policy:
         self.height = None
         self.values = np.zeros(0)
         self.gameLogic = GameLogic(getDefaultPolicyConfig())
+
+    def getPolicy(self):
+        return self.policy
 
     def setConfig(self, policyConfig):
         self.gameLogic = GameLogic(policyConfig)
@@ -148,22 +169,25 @@ class Policy:
         # map: gridworld map
         # gamma: discount rate
 
+        t = time.time()
         if len(self.policy) != len(gridWorld.getCells()):
             # sanity check whether policy matches dimension of gridWorld
             raise Exception("Policy dimension doesn't fit gridworld dimension.")
-
+        maxIterations = 500
         V_old = None
         V_new = initValues(gridWorld)
         iter = 0
-        ignoreCellIndices = np.zeros(0) # cells where values don't change anymore
-        while np.any(V_new != V_old):
+        convergedCellIndices = np.zeros(0) # cells where values don't change anymore
+        while len(convergedCellIndices) != len(V_new):
             V_old = V_new
             iter += 1
-            #print("iter: " + str(iter))
-            V_new = self.evaluatePolicyIteration(gridWorld, V_old, gamma, ignoreCellIndices)
-            #print(V_new)
-            ignoreCellIndices = self.findConvergedCells(V_old, V_new)
-        print("Policy evaluation terminated after iteration: " + str(iter))
+            V_new = self.evaluatePolicySweep(gridWorld, V_old, gamma, convergedCellIndices)
+            convergedCellIndices = self.findConvergedCells(V_old, V_new)
+            if iter > maxIterations:
+                print("Terminated policy evaluation after " + str(maxIterations) + " iterations")
+                break
+        t = time.time() - t
+        print("Policy evaluation converged after iteration: " + str(iter) + ", time: " + str(t))
         #print(V_new)
         return V_new
 
@@ -176,9 +200,10 @@ class Policy:
             warnings.filterwarnings('ignore', r'invalid value encountered')
             diff = abs(V_old-V_new)
             idx = np.where(diff < theta)[0]
-            return idx
+            sameIdx = np.where(V_new == -np.inf)[0]
+            return np.concatenate((idx, sameIdx))
 
-    def evaluatePolicyIteration(self, gridWorld, V_old, gamma, ignoreCellIndices):
+    def evaluatePolicySweep(self, gridWorld, V_old, gamma, ignoreCellIndices):
         V = initValues(gridWorld)
         # evaluate policy for every state (i.e. for every viable actor position)
         for (i,cell) in enumerate(gridWorld.getCells()):
@@ -202,8 +227,6 @@ class Policy:
         for (i, actionType) in enumerate(Actions):
             gridWorld.setActor(cell) # set state
             actionProb = self.pi(cell, actionType)
-            #if cell.getIndex() == 35:
-            #    print(actionType, actionProb)
             if actionProb == 0 or actionType == Actions.NONE:
                 continue
             newStates = stateGen.generateState(gridWorld, actionType, cell)
@@ -217,14 +240,9 @@ class Policy:
                 transitionReward += newStateReward
             transitionRewards[i] = transitionReward
             V_a = actionProb * transitionReward
-            #if cell.getIndex() == 35: # 1,16
-            #    print(cell.getCoords())
-            #    print("Va: " + str(V_a))
             V += V_a
         if len(self.policy) == 0:
-            #print(transitionRewards)
             V = max(transitionRewards)
-        #print(transitionRewards)
         return V
 
     def getValue(self, i):
@@ -248,11 +266,11 @@ class Policy:
         while np.any(V_new != V_old):
             V_old = V_new
             iter += 1
-            V_new = self.evaluatePolicyIteration(gridWorld, V_old, gamma, ignoreCellIndices)
+            V_new = self.evaluatePolicySweep(gridWorld, V_old, gamma, ignoreCellIndices)
             ignoreCellIndices = self.findConvergedCells(V_old, V_new)
         print("Terminated after: " + str(iter) + " iterations")
         # store policy found through value iteration
-        greedyPolicy = createPolicy(V_new, gridWorld, self.gameLogic)
+        greedyPolicy = findGreedyPolicy(V_new, gridWorld, self.gameLogic)
         self.setPolicy(greedyPolicy)
         self.setWidth(gridWorld.getWidth())
         self.setHeight(gridWorld.getHeight())

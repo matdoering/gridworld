@@ -5,7 +5,7 @@ from Actions import Actions
 def getPerceptionProbabilityWallDir(newCell):
     return 1 if newCell.isWall() else 0
 
-def transitionProbabilityForInvalidMoves(oldState, newState):
+def transitionProbabilityForIllegalMoves(oldState, newState):
     if newState == oldState:
         # this is correct
         return 1
@@ -31,10 +31,18 @@ class GameLogic:
         # check whether move is possible at all
         proposedCell = gridWorld.proposeMove(action)
         if proposedCell is None:
-            return transitionProbabilityForInvalidMoves(oldState, newState)
+            # illegal action for 'oldState'
+            return transitionProbabilityForIllegalMoves(oldState, newState)
         if oldState != newState and newState != proposedCell:
-            # we changed state but there was no action to bring us to this state
+            # newState cant be reached with available actions
             return 0
+        if oldState.isGoal():
+            if newState == oldState:
+                # remain at goal
+                return 0 # TODO
+            else:
+                # dont move away from goal cell
+                return 0
         if gridWorld.isCellAdjacentToWall(oldState):
             stickyWallConfig = self.config.getStickyWallConfig()
             return transitionProbabilityAdjacentToWall(oldState, newState, stickyWallConfig.p)
@@ -80,6 +88,6 @@ class GameLogic:
         if newState and newState.isGoal():
             return 0
         else:
-            return - 1
+            return -1
 
 

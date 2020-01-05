@@ -1,7 +1,7 @@
 from Map import Map
-
+from matplotlib import pyplot as plt
 import numpy as np
-from Policy import Policy, improvePolicy, policyIteration # , valueIteration
+from Policy import Policy, improvePolicy, policyIteration, drawValueFunction # , valueIteration
 from MapParser import MapParser
 from PolicyParser import PolicyParser
 from PolicyConfig import PolicyConfig, StickyWallConfig
@@ -26,10 +26,10 @@ gridMap = loadDefaultMap()
 print(gridMap)
 
 # options:
-beliefTracking = False
-testStickyWall = True
-toImprovePolicy = True
-selectPolicy = True
+beliefTracking = True
+testStickyWall = False
+toImprovePolicy = False
+selectPolicy = False
 
 # run:
 optimalPolicyThroughImprovement = None
@@ -63,15 +63,21 @@ if toImprovePolicy:
     # evaluate policy
     print("eval policy")
     V = policy.evaluatePolicy(gridMap)
+    #drawValueFunction(V, gridMap, policy.getPolicy())
+    #plt.imshow(np.reshape(V, (-1, gridMap.getWidth())))
+    #plt.show()
     print(policy)
     print("improve policy")
     greedyPolicy = improvePolicy(policy, gridMap)
+    V = greedyPolicy.evaluatePolicy(gridMap)
+    #drawValueFunction(V, gridMap, greedyPolicy.getPolicy())
     print(greedyPolicy)
     greedyPolicy.resetValues()
     # policy iteration
     print("policy iteration:")
     optimalPolicyThroughImprovement = policyIteration(greedyPolicy, gridMap)
     print(optimalPolicyThroughImprovement)
+    drawValueFunction(optimalPolicyThroughImprovement.getValues(), gridMap, optimalPolicyThroughImprovement.getPolicy())
 
 if selectPolicy:
     # value iteration
