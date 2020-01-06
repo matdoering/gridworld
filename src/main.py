@@ -21,14 +21,15 @@ def loadDefaultPolicy():
     policy = parser.parsePolicy("../data/map01.policy")
     return policy
 
+dataDir = "../data/output/"
 # load map
 gridMap = loadDefaultMap()
 print(gridMap)
 
 # options:
-beliefTracking = True
+beliefTracking = False
 testStickyWall = False
-toImprovePolicy = False
+toImprovePolicy = True
 selectPolicy = False
 
 # run:
@@ -63,21 +64,28 @@ if toImprovePolicy:
     # evaluate policy
     print("eval policy")
     V = policy.evaluatePolicy(gridMap)
-    #drawValueFunction(V, gridMap, policy.getPolicy())
+    policy.setValues(V)
+    drawValueFunction(V, gridMap, policy.getPolicy(), False)
+    plt.savefig(dataDir + "policy_value_function.png")
+    plt.close()
     #plt.imshow(np.reshape(V, (-1, gridMap.getWidth())))
     #plt.show()
     print(policy)
     print("improve policy")
     greedyPolicy = improvePolicy(policy, gridMap)
     V = greedyPolicy.evaluatePolicy(gridMap)
-    #drawValueFunction(V, gridMap, greedyPolicy.getPolicy())
+    drawValueFunction(V, gridMap, greedyPolicy.getPolicy(), False)
+    plt.savefig(dataDir + "policy_value_function_improved.png")
+    plt.close()
     print(greedyPolicy)
     greedyPolicy.resetValues()
     # policy iteration
     print("policy iteration:")
-    optimalPolicyThroughImprovement = policyIteration(greedyPolicy, gridMap)
+    optimalPolicyThroughImprovement = policyIteration(policy, gridMap, storeValueFunction = True)
     print(optimalPolicyThroughImprovement)
-    drawValueFunction(optimalPolicyThroughImprovement.getValues(), gridMap, optimalPolicyThroughImprovement.getPolicy())
+    drawValueFunction(optimalPolicyThroughImprovement.getValues(), gridMap, optimalPolicyThroughImprovement.getPolicy(), False)
+    plt.savefig(dataDir + "policy_value_function_optimal_improved.png")
+    plt.close()
 
 if selectPolicy:
     # value iteration

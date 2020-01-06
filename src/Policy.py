@@ -8,21 +8,45 @@ from PolicyConfig import PolicyConfig, getDefaultPolicyConfig
 from GameLogic import GameLogic
 import warnings
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MaxNLocator
 import time
 
-def drawValueFunction(V, gridWorld, policy):
+def medianValue(V):
+    return np.median(V)
+
+def storeValueFunctionInIter(gridWorld, policy, iterLabel):
+    V = policy.getValues()
+    medianV = medianValue(V)
+    metaInfo = "Iteration: " + iterLabel + "\nMedian value: " + str(medianV)
+    drawValueFunction(V, gridWorld, policy.getPolicy(), False, metaInfo)
+    plt.savefig("../data/output/policy_iteration_" + iterLabel + ".png")
+    plt.close()
+
+def drawValueFunction(V, gridWorld, policy, showFigure = True, metaInfo = None):
     fig, ax = plt.subplots()
+    fig.suptitle('Gridworld: Value Function and Policy', fontsize=18)
+    plt.xlabel('Grid Col', fontsize=16)
+    plt.ylabel('Grid Row', fontsize=16)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    plt.subplots_adjust(left = 0.10, right = 0.95, bottom = 0.1, top = 0.85) # less white space
     im = ax.imshow(np.reshape(V, (-1, gridWorld.getWidth())))
     for cell in gridWorld.getCells():
         p = cell.getCoords()
         i = cell.getIndex()
         if not cell.isGoal():
             text = ax.text(p[1], p[0], str(policy[i]),
-                       ha="center", va="center", color="w")
+                       ha="center", va="center", color="w", size = 16)
         if cell.isGoal():
-            text = ax.text(p[1], p[0], "Goal",
-                       ha="center", va="center", color="w")
-    plt.show()
+            text = ax.text(p[1], p[0], "X",
+                       ha="center", va="center", color="w", size = 16)
+    if metaInfo:
+       #fig.text(1.0, 1.0, metaInfo, ha='right', va='top', transform=ax.transAxes)
+       fig.text(0.6, 0.91, metaInfo, ha='left', va='top', size = 12)
+
+    if showFigure:
+        plt.show()
+    return(fig)
 
 def initValues(gridWorld):
     values = np.zeros(gridWorld.size())
@@ -72,19 +96,26 @@ def improvePolicy(policy, gridWorld, gamma = 1):
     policy.setPolicy(greedyPolicy)
     return policy
 
-def policyIteration(policy, gridWorld, gamma = 1):
+def policyIteration(policy, gridWorld, gamma = 1, storeValueFunction = False):
     # iteratively improve policy by cycling
     # policy evaluation and policy improvement
     t = time.time()
     print("Input policy:")
     print(policy)
+    if storeValueFunction:
+        storeValueFunctionInIter(gridWorld, policy, "00")
     lastPolicy = copy.deepcopy(policy)
     lastPolicy.resetValues() # reset values to force re-evaluation of policy
     improvedPolicy = None
     it = 0
     while True:
-        improvedPolicy = improvePolicy(lastPolicy, gridWorld, gamma)
         it += 1
+        improvedPolicy = improvePolicy(lastPolicy, gridWorld, gamma)
+        if storeValueFunction:
+            label = str(it)
+            if it < 10:
+                label = "0" + str(it)
+            storeValueFunctionInIter(gridWorld, improvedPolicy, label)
         #print("policyIteration: " + str(it))
         #print(lastPolicy)
         #print(improvedPolicy) # DEBUG
