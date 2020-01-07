@@ -1,5 +1,5 @@
 # track belief in states
-
+import time
 import numpy as np
 from Actions import Actions, getViableActions
 from GameLogic import GameLogic
@@ -17,20 +17,21 @@ def interpretBelief(P, gridWorld):
     maxP_s = str(round(maxP*100, 2))+ "%"
     print("Max Belief is: " + maxP_s + ", at: " + str(cell.getCoords()))
 
-def randomActionSelection(gridWorld, belief, gameLogic):
+def randomActionSelection(gridWorld, belief, gameLogic, V):
         # ignores gridWorld and belief. arg just passed to have the same interface
         actions = getViableActions()
         a = random.choice(actions)
         return(a)
 
 
-def QMDP(gridWorld, belief, gameLogic):
+def QMDP(gridWorld, belief, gameLogic, V = None):
     # QMDP: approximation of PMDP using a hybrid of MDP and PMDP
     # value function: ignores state uncertainty
     # TODO: need +/-1 penalty for this to work. otherwise belief doesnt really have an effect
     policy = Policy([])
+    if V is None:
+        V = policy.valueIteration(gridWorld)
     generator = StateGenerator()
-    V = policy.valueIteration(gridWorld)
     actions = getViableActions()
     bestAction = (Actions.NONE, -np.inf) # pair of action and reward
     allBestActions = []
@@ -63,14 +64,14 @@ def QMDP(gridWorld, belief, gameLogic):
             #actionMap[cell.getRow(), cell.getCol(), action.value-1] = PQ
             #print(PQ)
             if PQ > bestAction[1]:
-                print("new max at cell: ", cell.getCoords(), PQ)
+                #print("new max at cell: ", cell.getCoords(), PQ)
                 bestAction = (action, PQ)
                 allBestActions = []
                 allBestActions.append(action)
             elif PQ == bestAction[1]:
-                print("additional max at cell: ", cell.getCoords(), PQ)
+                #print("additional max at cell: ", cell.getCoords(), PQ)
                 allBestActions.append(action)
-    print("QMDP choice: ", bestAction)
+    #print("QMDP choice: ", bestAction)
     #print(actionMap)
     print("No of optimal actions: " + str(len(allBestActions)))
     return random.choice(allBestActions)
@@ -110,7 +111,8 @@ class Belief:
                 newBeliefs[cell.getIndex()] = newBelief
                 eta += newBelief
             # normalize belief
-            newBeliefs /= eta
+            if eta != 0.0:
+                newBeliefs /= eta
         elif dataItem.isAction():
             for newCell in self.gridWorld.getViableCells():
                 newBelief = 0
@@ -138,25 +140,39 @@ class Belief:
         actions = getViableActions()
         curBelief = self.uniformPriorOverReachableStates()
 
-        for i in range(500):
-            # randomly pick an action
-            a = actionSelectionStrategy(self.gridWorld, curBelief, self.gameLogic)
-            self.gridWorld.setActor(curCell) # make sure that actor is on same position as before selecting action (TODO)
-            #a = Actions.GO_NORTH
-            print(a)
-            p = self.gridWorld.apply(a)
-            curCell = self.gridWorld.getActorCell()
-            #print(p)
-            #curCell = self.gridWorld.getActorCell()
-            curBelief = self.bayesFilter(Action(a), curBelief)
-            curBelief = self.bayesFilter(Perception(p), curBelief)
-            interpretBelief(curBelief, self.gridWorld)
-            #print(curBelief)
-            print(self.gridWorld)
-            # check whether agent has reached the goal
-            if self.gridWorld.getActorCell().isGoal():
-                break
-        print("Reached goal in iteration: " + str(i))
+        policy = Policy([])
+        V = policy.valueIteration(self.gridWorld)
+        # TODO: implement python module that collects stats about agent operations
+        # - number of actions taken
+        # - shortest path from initial position
+        # - actual actions taken / shortest path from initial
+        while True:
+            for i in range(100):
+                # randomly pick an action
+                a = actionSelectionStrategy(self.gridWorld, curBelief, self.gameLogic, V)
+                self.gridWorld.setActor(curCell) # make sure that actor is on same position as before selecting action (TODO)
+                #a = Actions.GO_NORTH
+                #print(a)
+                p = self.gridWorld.apply(a)
+                curCell = self.gridWorld.getActorCell()
+                #print(p)
+                #curCell = self.gridWorld.getActorCell()
+                curBelief = self.bayesFilter(Action(a), curBelief)
+                curBelief = self.bayesFilter(Perception(p), curBelief)
+                interpretBelief(curBelief, self.gridWorld)
+                #print(curBelief)
+                print(self.gridWorld)
+                # check whether agent has reached the goal
+                if self.gridWorld.getActorCell().isGoal():
+                    print("#" * 30)
+                    print("Yay, I reached the goal in iteration: " + str(i))
+                    print("#" * 30)
+                    time.sleep(1.5)
+                    # reset to initial state:
+                    curBelief = self.uniformPriorOverReachableStates()
+                    self.gridWorld.unsetActor(curCell)
+                    curCell = self.gridWorld.getRandomEnterableCell()
+                    break
         return(i)
 
 # problem: belief state is too unsure about the world to derive viable actions

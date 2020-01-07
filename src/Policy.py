@@ -14,17 +14,18 @@ import time
 def medianValue(V):
     return np.median(V)
 
-def storeValueFunctionInIter(gridWorld, policy, iterLabel):
+def storeValueFunctionInIter(gridWorld, policy, iterLabel, fnamePrefix):
     V = policy.getValues()
     medianV = medianValue(V)
     metaInfo = "Iteration: " + iterLabel + "\nMedian value: " + str(medianV)
     drawValueFunction(V, gridWorld, policy.getPolicy(), False, metaInfo)
-    plt.savefig("../data/output/policy_iteration_" + iterLabel + ".png")
+    folder = "../data/output/"
+    plt.savefig(folder + fnamePrefix + iterLabel + ".png")
     plt.close()
 
 def drawValueFunction(V, gridWorld, policy, showFigure = True, metaInfo = None):
     fig, ax = plt.subplots()
-    fig.suptitle('Gridworld: Value Function and Policy', fontsize=18)
+    fig.suptitle('Gridworld: Value Function', fontsize=18)
     plt.xlabel('Grid Col', fontsize=16)
     plt.ylabel('Grid Row', fontsize=16)
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
@@ -34,7 +35,7 @@ def drawValueFunction(V, gridWorld, policy, showFigure = True, metaInfo = None):
     for cell in gridWorld.getCells():
         p = cell.getCoords()
         i = cell.getIndex()
-        if not cell.isGoal():
+        if not cell.isGoal() and len(policy) > i:
             text = ax.text(p[1], p[0], str(policy[i]),
                        ha="center", va="center", color="w", size = 16)
         if cell.isGoal():
@@ -103,7 +104,7 @@ def policyIteration(policy, gridWorld, gamma = 1, storeValueFunction = False):
     print("Input policy:")
     print(policy)
     if storeValueFunction:
-        storeValueFunctionInIter(gridWorld, policy, "00")
+        storeValueFunctionInIter(gridWorld, policy, "00", "policy_iteration")
     lastPolicy = copy.deepcopy(policy)
     lastPolicy.resetValues() # reset values to force re-evaluation of policy
     improvedPolicy = None
@@ -115,7 +116,7 @@ def policyIteration(policy, gridWorld, gamma = 1, storeValueFunction = False):
             label = str(it)
             if it < 10:
                 label = "0" + str(it)
-            storeValueFunctionInIter(gridWorld, improvedPolicy, label)
+            storeValueFunctionInIter(gridWorld, improvedPolicy, label, "policy_iteration")
         #print("policyIteration: " + str(it))
         #print(lastPolicy)
         #print(improvedPolicy) # DEBUG
@@ -282,24 +283,31 @@ class Policy:
     def resetPolicy(self):
         self.policy = []
 
-    def valueIteration(self, gridWorld, gamma = 1):
+    def valueIteration(self, gridWorld, gamma = 1, storeValueFunction = False):
         # determine the value function V by combining
         # evaluation and policy improvement steps
 
         # reset policy to ensure that value iteration algorithm is used
         # instead of improving existing policy
         self.resetPolicy()
-
+        t = time.time()
         V_old = None
         V_new = np.repeat(0, gridWorld.size())
         iter = 0
-        ignoreCellIndices = np.zeros(0) # cells where values don't change anymore
-        while np.any(V_new != V_old):
+        convergedCellIndices = np.zeros(0) # cells where values don't change anymore
+        while len(convergedCellIndices) != len(V_new):
             V_old = V_new
             iter += 1
-            V_new = self.evaluatePolicySweep(gridWorld, V_old, gamma, ignoreCellIndices)
-            ignoreCellIndices = self.findConvergedCells(V_old, V_new)
-        print("Terminated after: " + str(iter) + " iterations")
+            V_new = self.evaluatePolicySweep(gridWorld, V_old, gamma, convergedCellIndices)
+            self.setValues(V_new)
+            if storeValueFunction:
+                label = str(iter)
+                if iter < 10:
+                    label = "0" + str(iter)
+                storeValueFunctionInIter(gridWorld, self, label, "value_iteration")
+            convergedCellIndices = self.findConvergedCells(V_old, V_new)
+        t = time.time() - t
+        print("Value iteration terminated after: " + str(iter) + " iterations, time: " + str(t))
         # store policy found through value iteration
         greedyPolicy = findGreedyPolicy(V_new, gridWorld, self.gameLogic)
         self.setPolicy(greedyPolicy)

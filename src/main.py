@@ -27,9 +27,9 @@ gridMap = loadDefaultMap()
 print(gridMap)
 
 # options:
-beliefTracking = False
+beliefTracking = True
 testStickyWall = False
-toImprovePolicy = True
+toImprovePolicy = False
 selectPolicy = False
 
 # run:
@@ -91,7 +91,7 @@ if selectPolicy:
     # value iteration
     emptyPolicy = Policy([])
     print("value iteration")
-    V_opt = emptyPolicy.valueIteration(gridMap)
+    V_opt = emptyPolicy.valueIteration(gridMap, storeValueFunction = True)
     print(emptyPolicy)
     emptyPolicy.resetValues()
     print("optimal, non-sticky policy")
